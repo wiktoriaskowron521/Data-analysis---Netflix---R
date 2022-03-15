@@ -1,0 +1,238 @@
+---
+title: "Projekt 2"
+author: "Wiktoria Skowron"
+date: "11 01 2022"
+output: html_document
+---
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(tidyverse)   
+library(dplyr)        
+library(ggplot2)      
+library(RColorBrewer) # palety kolorow
+library(jcolors)      # palety kolorow
+library(CGPfunctions) 
+library(gridExtra)
+```
+![podsumowanie](netflixlogo.png){#id .class width=50% height=50%} \
+\
+**Netflix** to jeden z najpopularniejszych serwisów VOD oferująców za zryczałtowaną opłatą dostęp do filmów i seriali. \
+Od 1998 roku firma zajmowała się wypożyczaniem płyt DVD za pośrednictwem poczty. Świadczona usługa cieszyła się dużą popularnością - w 2007 roku przedsiębiorstwo ogłosiło, że wysłano już milard płyt. \
+Wraz z upływem czasu i rozwojem technologii firma przerodziła się w platformę streamingową.\
+Od roku 2016 platforma Netflix jest dostępna w Polsce, a jej biblioteka filmów i seriali stale się powiększa.
+```{r}
+#opis poszczególnych tytułóW
+netflix_titles <- read.csv(file = "netflix_titles.csv", sep =",")
+#notowania spółki netflix
+netflix_rates <- read.csv(file = "NFLX.csv", sep = ",")
+#opłata za korzystanie z serwisu
+netflix_fee <- read.csv(file = "nflx_fees.csv", sep = ",")
+#kraje vs liczba użytkowników
+netflix_country <- read.csv(file = "dane_kraje.csv", sep =",")
+```
+Warto zatem sprawdzić jak kreowały się notowania spółki NFLX w poszczególnych latach od 2002 roku.
+```{r}
+#wyodrębniam rok z daty
+netflix_rates$year= substr(netflix_rates$Date,1,4)
+#wykres
+netflix_rates %>%
+  group_by(year) %>%
+  summarize(rate = mean(Close))%>%
+  ggplot(aes(x=year,y=rate)) + geom_point(size=2,col="darkgreen")+
+  xlab("Rok") +
+  theme_bw() +
+  ylab("Notowanie spółki NFLX w USD") +
+  ggtitle("Notowania spółki NFLX w latach 2002-2022")
+```
+\
+Wnioski: Na wykresie widzimy stałe wzrosty, co nie powinno być zadziwiające, gdy bierzemy pod uwagę spółkę popularną na całym świecie. Warto jednak zaobserwować większe oraz wyróżniające się wahania. \
+Do 2010 roku platforma była dostępna jedynie w Stanach Zjednoczonych Ameryki. \
+W latach 2010-2011 usługi Netflixa udostępniono Kanadzie i krajom Ameryki Łacińskiej.\
+Coraz większe wzrosty w roku 2012 oraz późniejszych latach najprawdopodobniej są powiązane z rozpowszechnianiem platformy w kolejnych krajach. \
+\
+Rozpowszechnianie serwisu wiąże się również z coraz większą ilością filmów i seriali dostępnych na platformie.\
+Mając wiedzę, że cena Netflixa różni się w zależności od kraju, warto zweryfikować, czy wyższa cena powiązana jest z większą ilością dostępnych produkcji.
+```{r}
+netflix_fee%>%
+  filter(CostPerMonthStandard>16|CostPerMonthStandard<7.5)%>%
+ggplot(aes(x = TotalLibrarySize, y = CostPerMonthStandard,col=Country)) +
+  geom_point(size = 4) +
+  theme_bw() +
+  labs(title = "Najwyższe i najniższe ceny standardowych pakietów Netflixa",
+       SubTitle = "w odniesieniu do liczby dostępnych filmów i seriali w danym kraju",
+      x = "Liczba produkcji (filmów i seriali)",
+      y = "Cena standardowego pakietu w USD")
+```
+\
+Na powyższym wykresie można zauważyć, że liczba publikacji dostępnych w danym kraju nie wpływa na cenę. 
+Potwierdza to również rangowy współczynnik korelacji Spearmana:
+```{r}
+#korelacja metodą Spearmana, ponieważ w naszym zestawie występują wartości odstające
+cor(netflix_fee$TotalLibrarySize, netflix_fee$CostPerMonthStandard, method="spearman")
+```
+Jednakże na pewno widzimy, że w państwach kojarzonych z wysokimi zarobkami cena jest znacznie wyższa.\
+\
+Czy w takim razie ceny Netflixa zachęcają czy zniechęcają użytkowników poszczególnych krajów? \
+Sprawdźmy, jak poszczególne statystyki liczby subskrybentów wyglądają dla wybranych państw:
+```{r}
+netflix_country%>%
+ select(Country,SubscribersQ42021)%>%
+filter(Country %in% c("Poland","Switzerland","Argentina","Brazil","Colombia","India","Turkey","Liechtenstein"))%>%
+  ggplot(mapping = aes(x =SubscribersQ42021,y=Country)) +
+  geom_bar(stat = "identity") +
+  theme_bw() +
+    coord_flip() +
+  labs(title = "Liczba użytkowników Netflixa w ostatnim kwartale 2021 w zależności od kraju", 
+       x = "Liczba użytkowników", 
+       y = "Kraj")
+```   
+\
+Wnioski: Na podstawie wykresu możnaby przyjąć wnioski, że w krajach z wyższymi cenami pakietów mniej osób korzysta z serwisu.\
+Jednak nie jest to jednoznaczne porównanie - warto podkreślić, że w Brazylii mieszka 212,6 mln mieszkańców, co sprawia, że bardzo ciężko porównywać ją do Szwajcarii z 8,6 mln mieszkańców.\
+Znacznie bardziej miarodajna będzie liczba użytkowników na milion mieszkańców danego kraju.
+```{r}
+#Brazylia
+netflix_country$SubscribersQ42021[netflix_country$Country=="Brazil"]/212.6
+#Szwajcaria
+netflix_country$SubscribersQ42021[netflix_country$Country=="Switzerland"]/8.6
+```
+Przytoczone obliczenia zmieniają nieco pogląd na dane przedstawione na wykresie. Możemy zauważyć jak mylny może osąd tylko na podstawie (niekoniecznie przemyślanego) wykresu.\
+Na podstawie obliczeń widzimy, że znacznie więcej osób na mln mieszkańcóW korzysta z Netflixa w Szwajcarii.\
+Po porównaniu liczby użytkowników z liczbą mieszkańcóW danego państwa widać, że stosunkowo więcej osób korzysta z platfromy w krajach z wyższymi zarobkami.\
+Powyższe twierdzenia świadczą zatem o przekonaniu, że cena nie odstrasza użytkowników, tak jak możnaby to sobie wyobrazić. 
+\
+Skoro wiemy już, że ceny serwisu steamingowego nie są zależne od ilości dostępnych filmów i seriali, a ich wysokość niektórym mogłaby wydawać się dosyć nieuzasadniona, zastanówmy się, jak kryzys wynikający z pandemii wpłynął na zainteresowanie platformą. \
+Czy Netflix zanotował znaczący spadek użytkowników obawiających się straty płacy i starających się gromadzić oszczędności? \
+A może ogólnoświatowy lockdown przyniósł serwisowi więcej korzyści? \
+```{r}
+netflix_users <- read.csv(file = "usersn.csv", sep =",", row.names=NULL)
+netflix_users%>%
+  group_by(Area)%>%
+  ggplot(mapping = aes(x = reorder(Area,Subscribers), y=as.integer(Subscribers), fill=Years)) +
+  geom_bar(stat = "identity", position="dodge", color="black") +
+  theme_bw() +
+  scale_fill_brewer(palette="Spectral") +
+  coord_flip() +
+  labs(title = "Użytkownicy Neflixa w zależności od regionu", 
+       x = "Region", 
+       y = "Liczba użytkowników")
+```
+\
+Wnioski: Dane ukazane na wykresie wskazują, że Netflix od czasu otworzenia się na nowe państwa bardzo szybko zyskuje popularność i nowych użytkowników - widzimy, że w przedstawionym okresie najdynamiczniej powiększała się grupa Europy Środkowo-Wschodniej. \
+Wykres wskazuje, że lockdown nie tylko nie obniżył popularności serwisu, ale nawet przysporzył mu nowych, prawdopodobnie znudzonych siedzeniem w odosobnieniu, użytkowników. \
+\
+Sprawdźmy więc, jakie filmy i seriale podczas "narodowej kwarantanny" mogli oglądać użytkownicy platformy Netflix.\
+Jak Netflix przygotował się na znaczny wzrost użytkowników pod względem liczby nowododawanych filmów?
+Na poniższym wykresie możemy zaobserwować ilość filmów dodawanych do serwisu na przestrzeni lat.\
+Należy podkreślić, że nie są to daty wydania filmu, ale daty kiedy Netflix wykupił licencję na daną produkcję i dodał ją do swojej bazy.
+```{r}
+str_right <- function(string, n) {
+  substr(string, nchar(string) - (n - 1), nchar(string))
+}
+
+netflix_titles$yearad= str_right(netflix_titles$date_added,4)
+
+netflix_titles%>%
+  count(yearad)%>%
+  rename(liczbaFilmow=n,Rok=yearad)%>%
+  ggplot(aes(x = Rok, y = liczbaFilmow)) +
+  geom_point(size=2.5,col="blue") +
+  theme_bw() +
+  labs(title = "Liczba publikacji na Netflixie dodawanych w kolejnych latach",
+      x = "Rok dodania publikacji",
+      y = "Liczba publikacji (filmów i seriali)")
+```
+\
+Wnioski: Netflix był bardzo dobrze zaopatrzony w filmy, gdy zaczęła się ogólnoświatowa pandemia, a zarazem gdy liczba użytkowników serwisu dynamicznie wzrastała.\
+Netflix od czasu wejścia na rynek europejski w 2016 dodawał coraz większą liczbę filmów rocznie. W 2019 dodał na platformę najwięcej produkcji. Od 2020 roku liczba nowododanych produkcji była coraz mniejsza - prawdopodobnie ma to związek z pandemią i trudnościami ze znowieniem prac na planach filmowych.
+\
+Czy podobnie wyglądają statystyki nowododanych polskich filmów i seriali? Czy Netflix dodawał polskie filmy,zanim platforma była dostępna w Polsce?
+```{r}
+netflix_titles%>%
+  filter(grepl("Poland", country, fixed=TRUE))%>%
+  count(yearad)%>%
+  ggplot(aes(x = yearad, y = n)) +
+  geom_point(size=2.5,col="blue") +
+  theme_bw() +
+  labs(title = "Liczba publikacji na Netflixie dodawanych w kolejnych latach",
+      x = "Rok dodania publikacji",
+      y = "Liczba publikacji (filmów i seriali)")
+```
+\
+Wnioski: Jak widzimy na wykresie, na platformie nie było dostępnych żadnych polskich produkcji przed udostępnieniem Netflixa w Polsce.\
+Podobnie jak w ogólnym przypadku - najwięcej dodanych filmów było w 2019 roku.\
+Zobaczmy zatem, jakie są najstarsze filmy (całkowicie) polskiej produkcji, jakie możemy obejrzeć na platformie Netflix:
+```{r}
+starefilmy<-netflix_titles%>%
+  filter(country=="Poland")%>%
+  select(title,release_year,yearad)%>%
+  rename(Tytuł=title,Rok_Wydania=release_year,Rok_Dodania=yearad)%>%
+  arrange((Rok_Wydania))
+#10 najstarszych filmów na netflixie:
+starefilmy[1:10,]
+```
+W zestawieniu widzimy bardziej niszowe produkcje polskiego kina - filmy o tematyce wojennej takie jak "Westerplatte" czy "Portrety Wojenne" oraz dramaty i kryminały.\
+\
+W takim razie zobaczmy, jakich filmów było najwięcej w 2021 (w roku, którym zostało sporządzone zestawienie)\
+```{r}
+netflix_titles%>%
+  filter(listed_in %in% c("Thrillers","Horror Movies","Kids' TV","Comedies","Documentaries"))%>%
+  count(listed_in)%>%
+  ggplot(mapping = aes(x ="", y=n, fill=listed_in)) +
+  geom_bar(stat = "identity") +
+  coord_polar("y", start = 0) +
+  theme_void() +
+  labs(title = "Jakich filmów było najwięcej w 2021 roku?")+
+  guides(fill=guide_legend(title="Kategorie filmów:"))
+```
+\
+Wnioski: Widzimy, że więcej było filmów dokumentalnych i programów dla dzieci niż komedii i horrorów/thrillerów.
+\
+Porównajmy jeszcze, jakie roczniki filmowe czekały na fanów filmów dokumentalnych, komediowych, horrorów oraz filmów dla dzieci.\
+```{r}
+a<-2005
+dokumentalne<-netflix_titles%>%
+  filter(listed_in=="Documentaries",release_year>a)%>%
+  count(release_year)
+
+komedie<-netflix_titles%>%
+  filter(listed_in=="Comedies",release_year>a)%>%
+  count(release_year)
+
+dzieci<-netflix_titles%>%
+  filter(listed_in=="Kids' TV",release_year>a)%>%
+  count(release_year)
+
+straszne<-netflix_titles%>%
+  filter(listed_in %in% c("Thrillers","Horror Movies"),release_year>a)%>%
+  count(release_year)
+
+netflix_titles%>%
+  filter(release_year>a)%>%
+  count(release_year)%>%
+  rename(liczbaFilmow=n,Rok=release_year)%>%
+  ggplot(aes(x = Rok)) +
+  geom_line(aes(y = dokumentalne$n,color="Liczba filmów dokumentalnych"), size=1) +
+  geom_line(aes(y = komedie$n,color="Liczba filmów komediowych"), size=1) +
+  geom_line(aes(y = dzieci$n,color="Liczba filmów dla dzieci"), size=1) +
+  geom_line(aes(y = straszne$n,color="Liczba filmów horrorowych"), size=1) +
+  theme_bw() +
+  labs(title = "Liczba publikacji w zależności od roku wydania",
+      x = "Rok wydania",
+      y = "Liczba ublikacji (filmów i seriali)",
+      color="Legenda: ")
+```
+\
+Wnioski: W każdym z przypadków możemy zaobserwować największą ilość filmów z roku 2017. Jednak na pierwszy rzut oka widać, że liczba największy wzrost obserwujemy dla filmów dokumentalnych w 2017 roku. Najprawdopodobniej wynika to ze wzrostu popularności filmów dokumentalnych w ostatnich latach - widzowie coraz chętniej oglądają reportaże o znanych ludziach czy wydarzeniach. \
+\
+**PODSUMOWANIE**
+\
+Na podstawie przytoczonych danych opatrzonych wykresami i obliczeniami możemy zauważyć, jak postępował dotychczasowy rozwój platfromy Netflix. \
+Ciągły wzrost cen notowań spółki NFLX,liczby użytkowników serwisu czy opłat za dostęp w poszczególnych krajach mógłby świadczyć o nieustannie rosnącej popularności firmy. \
+Czy moglibyśmy prognozować, że fenomen znanej platfromy wkrótce się skończy?\
+W ostatnim czasie na giełdzie możemy zaobserwować znaczący spadek cen akcji spółki. Notowania spółki do tej pory spadły o prawie 40% od najwyższego punktu. \
+Na ten moment ciężko określić, czy jest to odbicie gwałtownych wzrostów podczas rozpoczynającego się w 2020 lockdownu czy może początek końca popularności Netflixa.\
+\
+Czy jednak potrafimy wyobrazić sobie, co w najbliższych latach może zastąpić dobrze znaną nam do tej pory platformę?\
+\
+\
+
